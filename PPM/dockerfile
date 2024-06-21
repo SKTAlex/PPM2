@@ -11,7 +11,7 @@ COPY . /PPM2
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Set environment variable for Django settings module
-ENV DJANGO_SETTINGS_MODULE=PPM.settings
+ENV DJANGO_SETTINGS_MODULE=PPM.PPM.settings
 
 # Expose port 8000 for the Django app
 EXPOSE 8000
