@@ -37,9 +37,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'dashboard',
-    'ticket',
-    'users',
+    'PPM.dashboard',  # Assicurati che 'PPM' sia il percorso corretto per il modulo 'dashboard'
+    'PPM.ticket',
+    'PPM.users',
     'widget_tweaks'
 ]
 
