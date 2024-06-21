@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+
+{% block content %}
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mx-auto" style="width:40rem;">
+            <div class="card-body">
+                <h5 class="card-title mb-3">Create Ticket</h5>
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label htmlFor="title" class="form-label">Title</label>
+                        {% render_field form.title class="form-control" %}
+                    </div>
+                    <div class="mb-3">
+                        <label htmlFor="price" class="form-label">Price</label>
+                        {% render_field form.price class="form-control" %}
+                    </div>
+                    <div class="mb-3">
+                        <label htmlFor="date" class="form-label">Date</label>
+                        {% render_field form.date class="form-control" %}
+                    </div>
+                    <div class="mb-3">
+                        <label htmlFor="time" class="form-label">Date</label>
+                        {% render_field form.time class="form-control" %}
+                    </div>
+                    <div class="mb-3">
+                        <label htmlFor="location" class="form-label">Location</label>
+                        {% render_field form.location class="form-control" %}
+                    </div>
+                    <div class="mb-3">
+                        <label htmlFor="quantity_available" class="form-label">Quantity Available</label>
+                        {% render_field form.quantity_available class="form-control" %}
+                    </div>
+                    <button type="submit" class="btn btn-primary">Submit</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock content %}

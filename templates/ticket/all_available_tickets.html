@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+
+{% block content %}
+
+<div class="card mx-auto" style="width: 76rem;">
+    <div class="card-body">
+        <h5 class="card-title mb-3">Available Tickets</h5>
+
+        <table class="table table-boarded">
+            <thead>
+            <tr>
+                <th scope="col">Ticket ID</th>
+                <th scope="col">Title</th>
+                <th scope="col">Date</th>
+                <th scope="col">Time</th>
+                <th scope="col">Location</th>
+                <th scope="col">Quantity Available</th>
+                <th scope="col">Price</th>
+                <th scope="col">Purchase</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for ticket in tickets %}
+            <tr>
+                <td>{{ticket.ticket_number}}</td>
+                <td>{{ticket.title}}</td>
+                <td>{{ticket.date|date:"F j, Y"}}</td>
+                <td>{{ticket.time}}</td>
+                <td>{{ticket.location}}</td>
+                <td>{{ticket.quantity_available}}</td>
+                <td>{{ticket.price}}</td>
+                <td><a href="{% url 'buy-ticket' ticket.pk %}">Buy</a></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+
+
+{% endblock content %}
