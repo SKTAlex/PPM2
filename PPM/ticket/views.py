@@ -1,107 +1,91 @@
+from .models import Event
+from .serializers import EventSerializer, ReservationSerializer, PaymentSerializer
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
+from django.db import transaction
 from django.shortcuts import render, redirect
+from .form import RegisterCustomerForm
 from django.contrib import messages
-from .models import Ticket, TicketPurchase
-import datetime
-from .form import CreateTicketForm, UpdateTicketForm
-from django.shortcuts import get_object_or_404
-from .form import TicketPurchaseForm
+from django.contrib.auth import authenticate, login, logout
 
 
-#Parte per i customer
-def create_ticket(request):
+def register_customer(request):
     if request.method == 'POST':
-        form = CreateTicketForm(request.POST)
+        form = RegisterCustomerForm(request.POST)
         if form.is_valid():
             var = form.save(commit=False)
-            var.created_by = request.user
-            var.ticket_status = 'Pending'
+            var.is_costumer = True
             var.save()
-            messages.info(request, 'Ticket created successfully')
-            return redirect('dashboard')
+            messages.info(request, 'Account created successfully. Please Login')
+            return redirect('login')
         else:
-            messages.warning(request, 'Something went wrong')
-            return redirect('create-ticket')
+            messages.warning(request, 'Something went wrong. Please try again')
+            return redirect('register-customer')
     else:
-        form = CreateTicketForm()
+        form = RegisterCustomerForm()
         context = {'form': form}
-        return render(request, 'ticket/create_ticket.html', context)
+        return render(request, 'ticket/register_customer.html', context)
 
 
-def update_ticket(request, id):
-    ticket = get_object_or_404(Ticket, pk=id)
-
-    if request.method == 'POST':
-        form = UpdateTicketForm(request.POST, instance=ticket)
-        if form.is_valid():
-            form.save()
-            messages.info(request, 'Ticket information has been updated')
-            return redirect('dashboard')
-        else:
-            messages.warning(request, 'Something went wrong. Please check the form.')
-    else:
-        form = UpdateTicketForm(instance=ticket)
-
-    context = {'form': form, 'ticket': ticket}
-    return render(request, 'ticket/update_ticket.html', context)
-
-
-def all_tickets(request):
-    tickets = Ticket.objects.filter(created_by=request.user)
-    context = {'tickets': tickets}
-    return render(request, 'ticket/all_tickets.html', context)
-
-
-def all_available_tickets(request):
-    accepted_tickets = Ticket.objects.filter(created_by=request.user, ticket_status='Accepted')
-    context = {'tickets': accepted_tickets}
-    return render(request, 'ticket/all_available_tickets.html', context)
-
-
-#parte per gli admin
-def ticket_queue(request):
-    tickets = Ticket.objects.filter(ticket_status='Pending')
-    context = {'tickets': tickets}
-    return render(request, 'ticket/ticket_queue.html', context)
-
-
-def accept_ticket(request, pk):
-    ticket = Ticket.objects.get(pk=pk)
-    ticket.ticket_status = 'Accepted'
-    ticket.assigned_to = request.user
-    ticket.accepted_date = datetime.datetime.now()
-    ticket.save()
-    messages.info(request, 'Ticket has been accepted')
-    return redirect('ticket-queue')
-
-
-def buy_ticket(request, ticket_id):
-    ticket = get_object_or_404(Ticket, pk=ticket_id)
+@api_view(['GET', 'POST'])
+def event_list(request):
+    if request.method == 'GET':
+        events = Event.objects.all()
+        serializer = EventSerializer(events, many=True)
+        return Response(serializer.data)
 
     if request.method == 'POST':
-        form = TicketPurchaseForm(request.POST)
-        if form.is_valid():
-            quantity = form.cleaned_data['quantity']
-            if quantity > ticket.quantity_available:
-                form.add_error('quantity', f'Only {ticket.quantity_available} tickets available')
+        serializer = EventSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET', 'PUT'])
+def event_detail(request, id):
+    try:
+        event = Event.objects.get(pk=id)
+    except Event.DoesNotExist:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        serializer = EventSerializer(event)
+        return Response(serializer.data)
+    elif request.method == 'PUT':
+        serializer = EventSerializer(event, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+def reservation_create(request):
+    serializer = ReservationSerializer(data=request.data)
+    if serializer.is_valid():
+        with transaction.atomic():
+            event = serializer.validated_data['event']
+            tickets_reserved = serializer.validated_data['number_of_tickets']
+            if event.available_tickets >= tickets_reserved:
+                event.available_tickets -= tickets_reserved
+                event.save()
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
             else:
-                ticket.quantity_available -= quantity
-                ticket.is_purchased = True
-                ticket.save()
-
-                # Create a new TicketPurchase object
-                purchase = TicketPurchase(user=request.user, ticket=ticket, quantity=quantity)
-                purchase.save()
-
-                return render(request, 'ticket/purchase_confirmation.html', {'ticket': ticket, 'quantity': quantity})
+                return Response({'error': 'Not enough tickets available'}, status=status.HTTP_400_BAD_REQUEST)
     else:
-        form = TicketPurchaseForm(initial={'ticket_id': ticket_id})
-
-    return render(request, 'ticket/buy_ticket.html', {'ticket': ticket, 'form': form})
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-def purchased_tickets(request):
-    purchases = TicketPurchase.objects.filter(user=request.user, ticket__is_purchased=True)
-    tickets_with_quantity = [(purchase.ticket, purchase.quantity) for purchase in purchases]
-    context = {'tickets': tickets_with_quantity}
-    return render(request, 'ticket/purchased_tickets.html', context)
-
+@api_view(['POST'])
+def payment_create(request):
+    serializer = PaymentSerializer(data=request.data)
+    if serializer.is_valid():
+        reservation = serializer.validated_data['reservation']
+        reservation.paid = True
+        reservation.save()
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    else:
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
